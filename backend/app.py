@@ -8,6 +8,9 @@ from datetime import timedelta
 from database import init_db, get_db
 from models import User, Product, BlogPost, GalleryItem, ChatbotSettings
 import json
+import subprocess
+import atexit
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
@@ -18,6 +21,17 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 CORS(app)
 jwt = JWTManager(app)
+
+# Optionally serve React build in production if it exists
+build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build'))
+if os.path.isdir(build_dir):
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve_react(path):
+        full_path = os.path.join(build_dir, path)
+        if path != '' and os.path.exists(full_path):
+            return send_from_directory(build_dir, path)
+        return send_from_directory(build_dir, 'index.html')
 
 # Ensure upload directories exist
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'products'), exist_ok=True)
@@ -355,4 +369,20 @@ def contact_form():
     return jsonify({'message': 'Message sent successfully'}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    fe_proc = None
+    if os.environ.get('START_FRONTEND_DEV') == '1':
+        frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
+        npm_cmd = 'npm.cmd' if os.name == 'nt' else 'npm'
+        try:
+            fe_proc = subprocess.Popen([npm_cmd, 'start'], cwd=frontend_path)
+        except Exception:
+            fe_proc = None
+
+        def _cleanup():
+            if fe_proc is not None and fe_proc.poll() is None:
+                fe_proc.terminate()
+        atexit.register(_cleanup)
+
+    debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
+    port = int(os.environ.get('PORT', '5000'))
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
