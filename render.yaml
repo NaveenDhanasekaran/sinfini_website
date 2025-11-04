@@ -1,35 +1,20 @@
 services:
-  # Backend (Flask)
   - type: web
-    name: sinfini-backend
-    env: python
-    plan: free
-    region: oregon
+    name: backend
     rootDir: backend
+    env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --preload --bind 0.0.0.0:$PORT
     envVars:
       - key: FLASK_DEBUG
-        value: "0"
+        value: 0
 
-  # Frontend (React)
-<<<<<<< HEAD
-  - type: static
-=======
   - type: web
->>>>>>> 873b1f1369de5779d663ca056f703b2744871b62
-    name: sinfini-frontend
-    env: node
-    plan: free
-    region: oregon
+    name: frontend
     rootDir: frontend
-<<<<<<< HEAD
+    env: static
     buildCommand: npm install && npm run build
     staticPublishPath: build
     envVars:
       - key: NODE_VERSION
-        value: "18"
-=======
-    buildCommand: npm ci && npm run build
-    startCommand: npx serve -s build -l $PORT  # serve production build
->>>>>>> 873b1f1369de5779d663ca056f703b2744871b62
+        value: 18
