@@ -151,23 +151,27 @@ def verify_token():
 
 @app.route('/api/products', methods=['GET'])
 def get_products():
-    db = get_db()
     try:
-        products = Product.get_all(db)
-        return jsonify(products), 200
-    finally:
-        db.close()
+        db = get_db()
+        try:
+            products = Product.get_all(db)
+            return jsonify(products), 200
+        finally:
+            db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch products'}), 500
 
 @app.route('/api/products/<int:product_id>', methods=['GET'])
 def get_product(product_id):
-    db = get_db()
     try:
-        product = Product.get_by_id(db, product_id)
+        db = get_db()
+        try:
+            product = Product.get_by_id(db, product_id)
         if product:
             return jsonify(product), 200
         return jsonify({'error': 'Product not found'}), 404
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch product'}), 500
 
 @app.route('/api/products', methods=['POST'])
 @jwt_required()
@@ -182,19 +186,14 @@ def create_product():
         image.save(image_path)
         image_url = f'/uploads/products/{filename}'
     
-    db = get_db()
     try:
-        product_id = Product.create(
-            db,
-            name=data.get('name'),
-            category=data.get('category'),
-            description=data.get('description'),
-            image_url=image_url
-        )
-        product = Product.get_by_id(db, product_id)
+        product_id = Product.create(db_session, name=data.get('name'), category=data.get('category'), description=data.get('description'), image_url=image_url)
+        db = get_db()
+        try:
+            product = Product.get_by_id(db, product_id)
         return jsonify(product), 201
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to create product'}), 500
 
 @app.route('/api/products/<int:product_id>', methods=['PUT'])
 @jwt_required()
@@ -202,9 +201,10 @@ def update_product(product_id):
     data = request.form
     image = request.files.get('image')
     
-    db = get_db()
     try:
-        product = Product.get_by_id(db, product_id)
+        db = get_db()
+        try:
+            product = Product.get_by_id(db, product_id)
         if not product:
             return jsonify({'error': 'Product not found'}), 404
         
@@ -215,51 +215,40 @@ def update_product(product_id):
             image.save(image_path)
             image_url = f'/uploads/products/{filename}'
         
-        Product.update(
-            db,
-            product_id,
-            name=data.get('name', product['name']),
-            category=data.get('category', product['category']),
-            description=data.get('description', product['description']),
-            image_url=image_url
-        )
-        
-        updated_product = Product.get_by_id(db, product_id)
+        Product.update(db_session, product_id, name=data.get('name', product['name']), category=data.get('category', product['category']), description=data.get('description', product['description']), image_url=image_url)
+        updated_product = Product.get_by_id(db_session, product_id)
         return jsonify(updated_product), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to update product'}), 500
 
 @app.route('/api/products/<int:product_id>', methods=['DELETE'])
 @jwt_required()
 def delete_product(product_id):
-    db = get_db()
     try:
-        Product.delete(db, product_id)
+        Product.delete(db_session, product_id)
         return jsonify({'message': 'Product deleted successfully'}), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to delete product'}), 500
 
 # ==================== BLOG ROUTES ====================
 
 @app.route('/api/blog', methods=['GET'])
 def get_blog_posts():
-    db = get_db()
     try:
-        posts = BlogPost.get_all(db)
+        posts = BlogPost.get_all(db_session)
         return jsonify(posts), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch blog posts'}), 500
 
 @app.route('/api/blog/<int:post_id>', methods=['GET'])
 def get_blog_post(post_id):
-    db = get_db()
     try:
-        post = BlogPost.get_by_id(db, post_id)
+        post = BlogPost.get_by_id(db_session, post_id)
         if post:
             return jsonify(post), 200
         return jsonify({'error': 'Blog post not found'}), 404
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch blog post'}), 500
 
 @app.route('/api/blog', methods=['POST'])
 @jwt_required()
@@ -274,19 +263,12 @@ def create_blog_post():
         image.save(image_path)
         image_url = f'/uploads/blog/{filename}'
     
-    db = get_db()
     try:
-        post_id = BlogPost.create(
-            db,
-            title=data.get('title'),
-            content=data.get('content'),
-            author=data.get('author', 'Admin'),
-            image_url=image_url
-        )
-        post = BlogPost.get_by_id(db, post_id)
+        post_id = BlogPost.create(db_session, title=data.get('title'), content=data.get('content'), author=data.get('author', 'Admin'), image_url=image_url)
+        post = BlogPost.get_by_id(db_session, post_id)
         return jsonify(post), 201
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to create blog post'}), 500
 
 @app.route('/api/blog/<int:post_id>', methods=['PUT'])
 @jwt_required()
@@ -294,9 +276,8 @@ def update_blog_post(post_id):
     data = request.form
     image = request.files.get('image')
     
-    db = get_db()
     try:
-        post = BlogPost.get_by_id(db, post_id)
+        post = BlogPost.get_by_id(db_session, post_id)
         if not post:
             return jsonify({'error': 'Blog post not found'}), 404
         
@@ -307,40 +288,30 @@ def update_blog_post(post_id):
             image.save(image_path)
             image_url = f'/uploads/blog/{filename}'
         
-        BlogPost.update(
-            db,
-            post_id,
-            title=data.get('title', post['title']),
-            content=data.get('content', post['content']),
-            author=data.get('author', post['author']),
-            image_url=image_url
-        )
-        
-        updated_post = BlogPost.get_by_id(db, post_id)
+        BlogPost.update(db_session, post_id, title=data.get('title', post['title']), content=data.get('content', post['content']), author=data.get('author', post['author']), image_url=image_url)
+        updated_post = BlogPost.get_by_id(db_session, post_id)
         return jsonify(updated_post), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to update blog post'}), 500
 
 @app.route('/api/blog/<int:post_id>', methods=['DELETE'])
 @jwt_required()
 def delete_blog_post(post_id):
-    db = get_db()
     try:
-        BlogPost.delete(db, post_id)
+        BlogPost.delete(db_session, post_id)
         return jsonify({'message': 'Blog post deleted successfully'}), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to delete blog post'}), 500
 
 # ==================== GALLERY ROUTES ====================
 
 @app.route('/api/gallery', methods=['GET'])
 def get_gallery_items():
-    db = get_db()
     try:
-        items = GalleryItem.get_all(db)
+        items = GalleryItem.get_all(db_session)
         return jsonify(items), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch gallery items'}), 500
 
 @app.route('/api/gallery', methods=['POST'])
 @jwt_required()
@@ -358,96 +329,84 @@ def create_gallery_item():
     file_ext = filename.rsplit('.', 1)[1].lower()
     media_type = 'video' if file_ext in ['mp4', 'webm', 'ogg'] else 'image'
     
-    db = get_db()
     try:
-        item_id = GalleryItem.create(
-            db,
-            media_type=media_type,
-            media_url=f'/uploads/gallery/{filename}',
-            title=data.get('title', ''),
-            description=data.get('description', '')
-        )
-        item = GalleryItem.get_by_id(db, item_id)
+        item_id = GalleryItem.create(db_session, media_type=media_type, media_url=f'/uploads/gallery/{filename}', title=data.get('title', ''), description=data.get('description', ''))
+        item = GalleryItem.get_by_id(db_session, item_id)
         return jsonify(item), 201
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to create gallery item'}), 500
 
 @app.route('/api/gallery/<int:item_id>', methods=['DELETE'])
 @jwt_required()
 def delete_gallery_item(item_id):
-    db = get_db()
     try:
-        GalleryItem.delete(db, item_id)
+        GalleryItem.delete(db_session, item_id)
         return jsonify({'message': 'Gallery item deleted successfully'}), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to delete gallery item'}), 500
 
 # ==================== CHATBOT ROUTES ====================
 
 @app.route('/api/chatbot/settings', methods=['GET'])
 def get_chatbot_settings():
-    db = get_db()
     try:
-        settings = ChatbotSettings.get(db)
+        settings = ChatbotSettings.get(db_session)
         return jsonify(settings), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch chatbot settings'}), 500
 
 @app.route('/api/chatbot/settings', methods=['PUT'])
 @jwt_required()
 def update_chatbot_settings():
     data = request.get_json()
-    db = get_db()
     try:
-        ChatbotSettings.update(
-            db,
-            greeting=data.get('greeting'),
-            faqs=json.dumps(data.get('faqs', []))
-        )
-        settings = ChatbotSettings.get(db)
+        ChatbotSettings.update(db_session, greeting=data.get('greeting'), faqs=json.dumps(data.get('faqs', [])))
+        settings = ChatbotSettings.get(db_session)
         return jsonify(settings), 200
-    finally:
-        db.close()
+    except Exception as e:
+        return jsonify({'error': 'Failed to update chatbot settings'}), 500
 
 @app.route('/api/chatbot/message', methods=['POST'])
 def chatbot_message():
     data = request.get_json()
     message = data.get('message', '').lower()
     
-    db = get_db()
     try:
-        settings = ChatbotSettings.get(db)
+        settings = ChatbotSettings.get(db_session)
         faqs = json.loads(settings.get('faqs', '[]'))
-    finally:
-        db.close()
-    
-    # Simple FAQ matching
-    for faq in faqs:
-        if any(keyword in message for keyword in faq.get('keywords', [])):
-            return jsonify({'response': faq.get('answer', '')}), 200
-    
-    return jsonify({
-        'response': 'Thank you for your message. For specific inquiries, please contact us through our contact form or email us at info@sinfinimarketing.com'
-    }), 200
+        
+        # Simple FAQ matching
+        for faq in faqs:
+            if any(keyword in message for keyword in faq.get('keywords', [])):
+                return jsonify({'response': faq.get('answer', '')}), 200
+        
+        return jsonify({
+            'response': 'Thank you for your message. For specific inquiries, please contact us through our contact form or email us at info@sinfinimarketing.com'
+        }), 200
+    except Exception as e:
+        return jsonify({'error': 'Failed to process chatbot message'}), 500
 
 # ==================== DASHBOARD STATS ====================
 
 @app.route('/api/dashboard/stats', methods=['GET'])
 @jwt_required()
 def get_dashboard_stats():
-    db = get_db()
     try:
-        products_count = len(Product.get_all(db))
-        blog_posts_count = len(BlogPost.get_all(db))
-        gallery_items_count = len(GalleryItem.get_all(db))
+        # Get counts
+        products = Product.get_all(db_session)
+        blog_posts = BlogPost.get_all(db_session)
+        gallery_items = GalleryItem.get_all(db_session)
         
-        return jsonify({
-            'products': products_count,
-            'blog_posts': blog_posts_count,
-            'gallery_items': gallery_items_count
-        }), 200
-    finally:
-        db.close()
+        stats = {
+            'products_count': len(products),
+            'blog_count': len(blog_posts),
+            'gallery_count': len(gallery_items),
+            'total_views': 1234  # Placeholder
+        }
+        
+        return jsonify(stats), 200
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch dashboard stats'}), 500
 
 # ==================== FILE SERVING ====================
 
